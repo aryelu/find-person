@@ -43,9 +43,9 @@ Open http://localhost:8000
 ```mermaid
 flowchart TD
     subgraph scan ["Scan (cached)"]
-        A[Photos folder] --> B[Face detection\nInsightFace buffalo_l]
-        B --> C[512-d ArcFace\nembeddings]
-        C --> D[Greedy cosine\nclustering ≥ 0.4]
+        A[Photos folder] --> B[Face detection]
+        B --> C[ArcFace embeddings]
+        C --> D[Greedy cosine clustering]
         D --> E[Clusters + centroids]
         E --> F[(JSON cache)]
     end
@@ -53,14 +53,14 @@ flowchart TD
     subgraph refs ["Reference matching (recomputed)"]
         G[Refs folder] --> H[Face detection]
         H --> I[Ref embeddings]
-        I --> J[Cosine similarity\nvs centroids ≥ 0.3]
+        I --> J[Score vs centroids]
         E --> J
         J --> K[matched / unmatched]
     end
 
     subgraph display ["Display"]
-        K --> L[Dedup: each photo → \nbest cluster only]
-        L --> M[Matched clusters open\nOthers collapsed]
+        K --> L[Dedup per photo]
+        L --> M[Matched first, others collapsed]
     end
 ```
 
