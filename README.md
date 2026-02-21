@@ -66,7 +66,22 @@ flowchart TD
 
 ## How embeddings work
 
-Each detected face is converted into a 512-dimensional vector (embedding) by the ArcFace model — a numeric fingerprint where faces of the same person land close together in that space.
+Embeddings are the same core idea behind LLMs and face recognition — turn something into a vector where similar things are nearby.
+
+```mermaid
+flowchart LR
+    subgraph llm ["LLM embeddings"]
+        A["king"] -- close --> B["queen"]
+        A -- far --> C["banana"]
+    end
+
+    subgraph face ["Face embeddings"]
+        D["kid photo 1"] -- "~0.75" --> E["kid photo 2"]
+        D -- "~0.15" --> F["stranger"]
+    end
+```
+
+Each detected face is converted into a 512-dimensional vector by the ArcFace model — a numeric fingerprint where faces of the same person land close together in that space.
 
 Cosine similarity measures how close two embeddings are: 1.0 = identical, 0.0 = completely unrelated. For example:
 - Two photos of the same kid smiling → ~0.75
