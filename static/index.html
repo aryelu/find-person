@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Face Cluster</title>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f5f5f5; color: #333; }
+
+  .app { max-width: 1100px; margin: 0 auto; padding: 24px; padding-bottom: 100px; }
+  h1 { font-size: 1.5rem; margin-bottom: 4px; }
+  .subtitle { color: #777; margin-bottom: 24px; font-size: 0.9rem; }
+
+  /* Buttons */
+  .btn { padding: 10px 20px; border: none; border-radius: 8px; font-size: 0.95rem; cursor: pointer; font-weight: 500; }
+  .btn-primary { background: #4f8cff; color: #fff; }
+  .btn-primary:hover { background: #3b7af0; }
+  .btn-primary:disabled { background: #a0c0ff; cursor: not-allowed; }
+  .btn-success { background: #4caf50; color: #fff; }
+  .btn-success:hover { background: #43a047; }
+  .btn-success:disabled { background: #a5d6a7; cursor: not-allowed; }
+  .btn-outline { background: #fff; border: 1px solid #ccc; color: #333; }
+  .btn-outline:hover { background: #f0f0f0; }
+  .btn-sm { padding: 6px 12px; font-size: 0.85rem; }
+
+  /* Folder inputs */
+  .folder-row { display: flex; gap: 8px; margin-bottom: 10px; align-items: center; }
+  .folder-row label { width: 100px; font-size: 0.9rem; font-weight: 500; flex-shrink: 0; }
+  .folder-row input { flex: 1; padding: 10px 14px; border: 1px solid #ccc; border-radius: 8px; font-size: 0.95rem; }
+  .folder-row input:focus { outline: none; border-color: #4f8cff; }
+  .scan-actions { margin-top: 8px; margin-bottom: 16px; display: flex; gap: 8px; align-items: center; }
+
+  /* Browser modal */
+  .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; z-index: 100; }
+  .browser { background: #fff; border-radius: 12px; width: 540px; max-height: 70vh; display: flex; flex-direction: column; box-shadow: 0 8px 32px rgba(0,0,0,0.2); }
+  .browser-header { padding: 16px 20px; border-bottom: 1px solid #eee; }
+  .browser-header h2 { font-size: 1.1rem; margin-bottom: 8px; }
+  .browser-path { font-size: 0.8rem; color: #777; word-break: break-all; background: #f5f5f5; padding: 6px 10px; border-radius: 6px; }
+  .browser-body { flex: 1; overflow-y: auto; padding: 8px 0; }
+  .browser-row { display: flex; align-items: center; padding: 8px 20px; cursor: pointer; gap: 10px; font-size: 0.9rem; }
+  .browser-row:hover { background: #f0f5ff; }
+  .browser-row .icon { font-size: 1.1rem; width: 24px; text-align: center; flex-shrink: 0; }
+  .browser-row .name { flex: 1; }
+  .browser-row.parent-row { color: #4f8cff; font-weight: 500; }
+  .browser-footer { padding: 12px 20px; border-top: 1px solid #eee; display: flex; gap: 8px; align-items: center; justify-content: flex-end; }
+
+  /* Progress */
+  .progress-wrap { margin-bottom: 20px; }
+  .progress-bar-outer { background: #ddd; border-radius: 8px; height: 8px; overflow: hidden; }
+  .progress-bar-inner { background: #4f8cff; height: 100%; transition: width 0.3s; }
+  .progress-text { font-size: 0.85rem; color: #777; margin-top: 4px; }
+
+  /* Cache banner */
+  .cache-banner { display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: #e3f2fd; border-radius: 8px; margin-bottom: 16px; font-size: 0.9rem; color: #1565c0; }
+  .cache-banner .cache-info { flex: 1; }
+  .cache-banner .cache-meta { font-size: 0.8rem; color: #5090c0; margin-top: 2px; }
+
+  /* Person cluster section */
+  .person-section { background: #fff; border-radius: 10px; margin-bottom: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); overflow: hidden; }
+  .person-header { display: flex; align-items: center; padding: 14px 18px; cursor: pointer; gap: 12px; user-select: none; }
+  .person-header:hover { background: #fafafa; }
+  .person-chevron { font-size: 0.8rem; color: #999; transition: transform 0.2s; width: 16px; }
+  .person-chevron.open { transform: rotate(90deg); }
+  .person-label { font-weight: 600; font-size: 0.95rem; flex: 1; }
+  .person-count { font-size: 0.85rem; color: #777; }
+  .person-body { padding: 0 18px 18px; }
+
+  /* Select all */
+  .select-all-row { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; padding: 8px 0; border-bottom: 1px solid #eee; }
+  .select-all-row label { font-size: 0.85rem; color: #555; cursor: pointer; display: flex; align-items: center; gap: 6px; }
+
+  /* Thumbnail grid */
+  .thumb-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
+  .thumb-card { position: relative; border-radius: 8px; overflow: hidden; cursor: pointer; border: 3px solid transparent; transition: border-color 0.15s; }
+  .thumb-card.selected { border-color: #4f8cff; }
+  .thumb-card img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; }
+  .thumb-check { position: absolute; top: 6px; left: 6px; width: 22px; height: 22px; border-radius: 50%; background: rgba(255,255,255,0.85); border: 2px solid #ccc; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; }
+  .thumb-card.selected .thumb-check { background: #4f8cff; border-color: #4f8cff; color: #fff; }
+  .thumb-name { position: absolute; bottom: 0; left: 0; right: 0; padding: 4px 6px; background: rgba(0,0,0,0.55); color: #fff; font-size: 0.7rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .thumb-sim { position: absolute; top: 6px; right: 6px; padding: 2px 6px; border-radius: 10px; font-size: 0.65rem; font-weight: 600; background: rgba(0,0,0,0.5); color: #fff; }
+
+  /* Sticky bottom bar */
+  .bottom-bar { position: fixed; bottom: 0; left: 0; right: 0; background: #fff; border-top: 1px solid #ddd; padding: 14px 24px; display: flex; align-items: center; justify-content: center; gap: 16px; z-index: 50; box-shadow: 0 -2px 8px rgba(0,0,0,0.06); }
+  .bottom-bar .count { font-size: 0.9rem; color: #555; }
+
+  /* Banners */
+  .result-banner { padding: 14px 18px; border-radius: 8px; margin-bottom: 16px; font-size: 0.9rem; }
+  .result-banner.success { background: #e8f5e9; color: #2e7d32; }
+  .result-banner.error { background: #fce4ec; color: #c62828; }
+
+  /* Empty state */
+  .empty { text-align: center; padding: 60px 20px; color: #999; }
+  .empty p { margin-top: 8px; font-size: 0.9rem; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useRef, useCallback } = React;
+
+/* ------------------------------------------------------------------ */
+/* Folder Browser modal                                                */
+/* ------------------------------------------------------------------ */
+function FolderBrowser({ onSelect, onClose }) {
+  const [currentPath, setCurrentPath] = useState("");
+  const [dirs, setDirs] = useState([]);
+  const [parent, setParent] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  const browse = async (path) => {
+    setLoading(true);
+    const url = path ? `/api/browse?path=${encodeURIComponent(path)}` : "/api/browse";
+    const res = await fetch(url);
+    if (res.ok) {
+      const data = await res.json();
+      setCurrentPath(data.path);
+      setDirs(data.dirs);
+      setParent(data.parent);
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => { browse(""); }, []);
+
+  return (
+    <div className="overlay" onClick={onClose}>
+      <div className="browser" onClick={e => e.stopPropagation()}>
+        <div className="browser-header">
+          <h2>Choose a folder</h2>
+          <div className="browser-path">{currentPath || "..."}</div>
+        </div>
+
+        <div className="browser-body">
+          {loading && <div style={{ padding: "20px", textAlign: "center", color: "#999" }}>Loading...</div>}
+
+          {!loading && parent && (
+            <div className="browser-row parent-row" onClick={() => browse(parent)}>
+              <span className="icon">..</span>
+              <span className="name">Parent folder</span>
+            </div>
+          )}
+
+          {!loading && dirs.map(d => (
+            <div className="browser-row" key={d} onClick={() => browse(currentPath + "/" + d)}>
+              <span className="icon">&#128193;</span>
+              <span className="name">{d}</span>
+            </div>
+          ))}
+
+          {!loading && dirs.length === 0 && (
+            <div style={{ padding: "20px", textAlign: "center", color: "#999", fontSize: "0.85rem" }}>
+              No subfolders
+            </div>
+          )}
+        </div>
+
+        <div className="browser-footer">
+          <button className="btn btn-outline" onClick={onClose}>Cancel</button>
+          <button className="btn btn-primary" onClick={() => onSelect(currentPath)}>
+            Select this folder
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Person cluster section                                              */
+/* ------------------------------------------------------------------ */
+function PersonSection({ person, selected, onToggle, onSelectAll, defaultOpen }) {
+  const [open, setOpen] = useState(defaultOpen);
+  const allSelected = person.images.every(img => selected.has(img.filename));
+  const someSelected = person.images.some(img => selected.has(img.filename));
+  const selectedCount = person.images.filter(img => selected.has(img.filename)).length;
+
+  const displayName = (relPath) => {
+    const parts = relPath.split("/");
+    return parts[parts.length - 1];
+  };
+
+  return (
+    <div className="person-section">
+      <div className="person-header" onClick={() => setOpen(!open)}>
+        <span className={`person-chevron ${open ? "open" : ""}`}>&#9654;</span>
+        <span className="person-label">{person.label}</span>
+        <span className="person-count">
+          {selectedCount > 0 ? `${selectedCount}/` : ""}{person.photo_count} photo{person.photo_count !== 1 ? "s" : ""}
+        </span>
+      </div>
+
+      {open && (
+        <div className="person-body">
+          <div className="select-all-row">
+            <label>
+              <input
+                type="checkbox"
+                checked={allSelected}
+                ref={el => { if (el) el.indeterminate = someSelected && !allSelected; }}
+                onChange={() => onSelectAll(person.images.map(i => i.filename), !allSelected)}
+              />
+              Select all
+            </label>
+          </div>
+
+          <div className="thumb-grid">
+            {person.images.map(img => {
+              const isSelected = selected.has(img.filename);
+              return (
+                <div
+                  key={img.filename}
+                  className={`thumb-card ${isSelected ? "selected" : ""}`}
+                  onClick={() => onToggle(img.filename)}
+                >
+                  <img
+                    src={`/api/images/${encodeURIComponent(img.filename)}`}
+                    alt={img.filename}
+                    loading="lazy"
+                  />
+                  <div className="thumb-check">{isSelected ? "\u2713" : ""}</div>
+                  {person.id !== -1 && img.similarity > 0 && (
+                    <div className="thumb-sim">{Math.round(img.similarity * 100)}%</div>
+                  )}
+                  <div className="thumb-name" title={img.filename}>{displayName(img.filename)}</div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Collapsible "Other people" wrapper for unmatched clusters           */
+/* ------------------------------------------------------------------ */
+function OtherPeopleSection({ persons, selected, onToggle, onSelectAll }) {
+  const [open, setOpen] = useState(false);
+  const totalPhotos = persons.reduce((sum, p) => sum + p.photo_count, 0);
+
+  return (
+    <div className="person-section">
+      <div className="person-header" onClick={() => setOpen(!open)} style={{background: "#fafafa"}}>
+        <span className={`person-chevron ${open ? "open" : ""}`}>&#9654;</span>
+        <span className="person-label" style={{color: "#777"}}>
+          Other people ({persons.length} cluster{persons.length !== 1 ? "s" : ""})
+        </span>
+        <span className="person-count">{totalPhotos} photo{totalPhotos !== 1 ? "s" : ""}</span>
+      </div>
+
+      {open && (
+        <div style={{padding: "0 0 8px"}}>
+          {persons.map(person => (
+            <PersonSection
+              key={person.id}
+              person={person}
+              selected={selected}
+              onToggle={onToggle}
+              onSelectAll={onSelectAll}
+              defaultOpen={false}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Main App                                                            */
+/* ------------------------------------------------------------------ */
+function App() {
+  const [scanFolder, setScanFolder] = useState("");
+  const [outputFolder, setOutputFolder] = useState("");
+  const [refsFolder, setRefsFolder] = useState("");
+  const [browseTarget, setBrowseTarget] = useState(null);  // "scan" | "output" | "refs" | null
+  const [status, setStatus] = useState({ status: "idle", processed: 0, total: 0 });
+  const [persons, setPersons] = useState([]);
+  const [hasRefs, setHasRefs] = useState(false);
+  const [selected, setSelected] = useState(new Set());
+  const [banner, setBanner] = useState(null);
+  const [copying, setCopying] = useState(false);
+  const [cacheInfo, setCacheInfo] = useState(null); // {scanned_at, image_count} or null
+  const [loadingCache, setLoadingCache] = useState(false);
+  const pollRef = useRef(null);
+  const cacheCheckRef = useRef(null);
+
+  const polling = status.status === "running";
+  const done = status.status === "done";
+
+  // Check for cache when scan folder changes (debounced)
+  useEffect(() => {
+    setCacheInfo(null);
+    const folder = scanFolder.trim();
+    if (!folder) return;
+
+    if (cacheCheckRef.current) clearTimeout(cacheCheckRef.current);
+    cacheCheckRef.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/cache/check?scan_folder=${encodeURIComponent(folder)}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.has_cache) {
+            setCacheInfo({ scanned_at: data.scanned_at, image_count: data.image_count });
+          }
+        }
+      } catch {}
+    }, 400);
+
+    return () => { if (cacheCheckRef.current) clearTimeout(cacheCheckRef.current); };
+  }, [scanFolder]);
+
+  // Clear cache banner when results are loaded
+  useEffect(() => {
+    if (done) setCacheInfo(null);
+  }, [done]);
+
+  // Poll scan progress
+  useEffect(() => {
+    if (!polling) return;
+    pollRef.current = setInterval(async () => {
+      const res = await fetch("/api/scan/status");
+      const data = await res.json();
+      setStatus(data);
+      if (data.status === "done") {
+        clearInterval(pollRef.current);
+        fetchResults();
+      }
+    }, 500);
+    return () => clearInterval(pollRef.current);
+  }, [polling]);
+
+  const fetchResults = async () => {
+    const res = await fetch("/api/results");
+    if (res.ok) {
+      const data = await res.json();
+      setPersons(data.persons);
+      setHasRefs(!!data.has_refs);
+    }
+  };
+
+  const startScan = async () => {
+    const sf = scanFolder.trim();
+    const of = outputFolder.trim();
+    if (!sf || !of) return;
+    setBanner(null);
+    setPersons([]);
+    setSelected(new Set());
+    setCacheInfo(null);
+    const res = await fetch("/api/scan", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ scan_folder: sf, output_folder: of, refs_folder: refsFolder.trim() }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      setStatus({ status: "running", processed: 0, total: data.total });
+    } else {
+      const err = await res.json();
+      setBanner({ type: "error", text: err.detail || "Failed to start scan" });
+    }
+  };
+
+  const loadFromCache = async () => {
+    const sf = scanFolder.trim();
+    const of = outputFolder.trim();
+    if (!sf || !of) {
+      setBanner({ type: "error", text: "Set both scan and output folders first" });
+      return;
+    }
+    setLoadingCache(true);
+    setBanner(null);
+    const res = await fetch("/api/cache/load", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ scan_folder: sf, output_folder: of, refs_folder: refsFolder.trim() }),
+    });
+    setLoadingCache(false);
+    if (res.ok) {
+      setStatus({ status: "done", processed: cacheInfo.image_count, total: cacheInfo.image_count });
+      fetchResults();
+    } else {
+      const err = await res.json();
+      setBanner({ type: "error", text: err.detail || "Failed to load cache" });
+    }
+  };
+
+  const toggleImage = useCallback((filename) => {
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(filename)) next.delete(filename);
+      else next.add(filename);
+      return next;
+    });
+  }, []);
+
+  const selectAll = useCallback((filenames, doSelect) => {
+    setSelected(prev => {
+      const next = new Set(prev);
+      for (const f of filenames) {
+        if (doSelect) next.add(f);
+        else next.delete(f);
+      }
+      return next;
+    });
+  }, []);
+
+  const copySelected = async () => {
+    setCopying(true);
+    setBanner(null);
+    const res = await fetch("/api/apply", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ selected: [...selected] }),
+    });
+    const data = await res.json();
+    setCopying(false);
+    if (res.ok) {
+      setBanner({ type: "success", text: data.message });
+    } else {
+      setBanner({ type: "error", text: data.detail || "Failed to copy" });
+    }
+  };
+
+  const handleBrowseSelect = (path) => {
+    if (browseTarget === "scan") setScanFolder(path);
+    else if (browseTarget === "output") setOutputFolder(path);
+    else if (browseTarget === "refs") setRefsFolder(path);
+    setBrowseTarget(null);
+  };
+
+  const pct = status.total > 0 ? Math.round((status.processed / status.total) * 100) : 0;
+
+  const formatDate = (iso) => {
+    try {
+      const d = new Date(iso);
+      return d.toLocaleDateString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+    } catch { return iso; }
+  };
+
+  return (
+    <div className="app">
+      <h1>Face Cluster</h1>
+      <p className="subtitle">Scan photos, cluster by person, pick what to keep</p>
+      <p style={{fontSize:"0.75rem",color:"#b0b0b0",marginBottom:16}}>Disclaimer: Use at your own risk. I am not responsible for any lost or deleted files.</p>
+
+      <div className="folder-row">
+        <label>Scan folder</label>
+        <input
+          type="text"
+          placeholder="Folder with photos to scan"
+          value={scanFolder}
+          onChange={e => setScanFolder(e.target.value)}
+          disabled={polling}
+        />
+        <button className="btn btn-outline btn-sm" onClick={() => setBrowseTarget("scan")} disabled={polling}>
+          Browse
+        </button>
+      </div>
+
+      <div className="folder-row">
+        <label>Output folder</label>
+        <input
+          type="text"
+          placeholder="Where to copy selected photos"
+          value={outputFolder}
+          onChange={e => setOutputFolder(e.target.value)}
+          disabled={polling}
+        />
+        <button className="btn btn-outline btn-sm" onClick={() => setBrowseTarget("output")} disabled={polling}>
+          Browse
+        </button>
+      </div>
+
+      <div className="folder-row">
+        <label>References <span style={{color:"#999",fontWeight:400,fontSize:"0.8rem"}}>(optional)</span></label>
+        <input
+          type="text"
+          placeholder="Folder with reference photos of specific people"
+          value={refsFolder}
+          onChange={e => setRefsFolder(e.target.value)}
+          disabled={polling}
+        />
+        <button className="btn btn-outline btn-sm" onClick={() => setBrowseTarget("refs")} disabled={polling}>
+          Browse
+        </button>
+      </div>
+
+      <div className="scan-actions">
+        <button
+          className="btn btn-primary"
+          onClick={startScan}
+          disabled={polling || !scanFolder.trim() || !outputFolder.trim()}
+        >
+          {polling ? "Scanning..." : "Scan"}
+        </button>
+      </div>
+
+      {browseTarget && (
+        <FolderBrowser onSelect={handleBrowseSelect} onClose={() => setBrowseTarget(null)} />
+      )}
+
+      {cacheInfo && !done && !polling && (
+        <div className="cache-banner">
+          <div className="cache-info">
+            <div>Previous scan found ({cacheInfo.image_count} images)</div>
+            <div className="cache-meta">Scanned {formatDate(cacheInfo.scanned_at)}</div>
+          </div>
+          <button className="btn btn-primary btn-sm" onClick={loadFromCache} disabled={loadingCache || !outputFolder.trim()}>
+            {loadingCache ? "Loading..." : "Load previous"}
+          </button>
+          <button className="btn btn-outline btn-sm" onClick={startScan} disabled={polling || !scanFolder.trim() || !outputFolder.trim()}>
+            Rescan
+          </button>
+        </div>
+      )}
+
+      {(polling || done) && (
+        <div className="progress-wrap">
+          <div className="progress-bar-outer">
+            <div className="progress-bar-inner" style={{ width: `${pct}%` }} />
+          </div>
+          <div className="progress-text">
+            {polling
+              ? `Scanning... ${status.processed} / ${status.total} images (${pct}%)`
+              : `Done \u2014 ${status.total} images scanned`}
+          </div>
+        </div>
+      )}
+
+      {banner && (
+        <div className={`result-banner ${banner.type}`}>{banner.text}</div>
+      )}
+
+      {(() => {
+        const faceClusters = persons.filter(p => p.id !== -1);
+        const noFaceClusters = persons.filter(p => p.id === -1);
+
+        if (hasRefs) {
+          const matched = faceClusters.filter(p => p.matched);
+          const unmatched = faceClusters.filter(p => !p.matched);
+          return (
+            <>
+              {matched.map(person => (
+                <PersonSection
+                  key={person.id}
+                  person={person}
+                  selected={selected}
+                  onToggle={toggleImage}
+                  onSelectAll={selectAll}
+                  defaultOpen={true}
+                />
+              ))}
+
+              {unmatched.length > 0 && (
+                <OtherPeopleSection
+                  persons={unmatched}
+                  selected={selected}
+                  onToggle={toggleImage}
+                  onSelectAll={selectAll}
+                />
+              )}
+
+              {noFaceClusters.map(person => (
+                <PersonSection
+                  key="no-faces"
+                  person={person}
+                  selected={selected}
+                  onToggle={toggleImage}
+                  onSelectAll={selectAll}
+                  defaultOpen={false}
+                />
+              ))}
+            </>
+          );
+        }
+
+        return (
+          <>
+            {faceClusters.map(person => (
+              <PersonSection
+                key={person.id}
+                person={person}
+                selected={selected}
+                onToggle={toggleImage}
+                onSelectAll={selectAll}
+                defaultOpen={true}
+              />
+            ))}
+
+            {noFaceClusters.map(person => (
+              <PersonSection
+                key="no-faces"
+                person={person}
+                selected={selected}
+                onToggle={toggleImage}
+                onSelectAll={selectAll}
+                defaultOpen={false}
+              />
+            ))}
+          </>
+        );
+      })()}
+
+      {!polling && persons.length === 0 && status.status === "idle" && (
+        <div className="empty">
+          <p>Set scan and output folders, then hit Scan.</p>
+        </div>
+      )}
+
+      {persons.length > 0 && (
+        <div className="bottom-bar">
+          <span className="count">{selected.size} image{selected.size !== 1 ? "s" : ""} selected</span>
+          <button
+            className="btn btn-success"
+            onClick={copySelected}
+            disabled={selected.size === 0 || copying}
+          >
+            {copying ? "Copying..." : `Copy ${selected.size} selected image${selected.size !== 1 ? "s" : ""} to output`}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>
