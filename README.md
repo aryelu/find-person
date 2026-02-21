@@ -2,7 +2,7 @@
 
 A local web app that scans a folder of photos, groups them by person using face recognition, and lets you pick which ones to keep.
 
-Built for teachers who get a big batch of event photos and need to quickly find all photos of specific kids.
+Built for parents who get hundreds of photos dumped into a school/kindergarten WhatsApp group and need to find their kid.
 
 ## How it works
 
@@ -38,19 +38,30 @@ Open http://localhost:8000
 - Python 3.10+
 - ~1.5 GB disk space for the face recognition model (downloaded automatically on first run)
 
-## Flow
+## Data pipeline
 
 ```mermaid
-flowchart LR
-    A[Photos folder] --> B[Detect faces]
-    B --> C[Cluster by person]
-    C --> D{References?}
-    D -- Yes --> E[Score clusters vs refs]
-    E --> F[Matched clusters first\nOthers collapsed]
-    D -- No --> G[Show all clusters]
-    F --> H[Select photos]
-    G --> H
-    H --> I[Copy to output]
+flowchart TD
+    subgraph scan ["Scan (cached)"]
+        A[Photos folder] --> B[Face detection\nInsightFace buffalo_l]
+        B --> C[512-d ArcFace\nembeddings]
+        C --> D[Greedy cosine\nclustering ≥ 0.4]
+        D --> E[Clusters + centroids]
+        E --> F[(JSON cache)]
+    end
+
+    subgraph refs ["Reference matching (recomputed)"]
+        G[Refs folder] --> H[Face detection]
+        H --> I[Ref embeddings]
+        I --> J[Cosine similarity\nvs centroids ≥ 0.3]
+        E --> J
+        J --> K[matched / unmatched]
+    end
+
+    subgraph display ["Display"]
+        K --> L[Dedup: each photo → \nbest cluster only]
+        L --> M[Matched clusters open\nOthers collapsed]
+    end
 ```
 
 ## How clustering works
