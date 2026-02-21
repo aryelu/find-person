@@ -64,9 +64,22 @@ flowchart TD
     end
 ```
 
-## How clustering works
+## How embeddings work
 
-Uses [InsightFace](https://github.com/deepinsight/insightface) with the `buffalo_l` model (ArcFace) for face detection and embedding extraction. Faces are grouped using greedy cosine-similarity clustering with a 0.4 threshold. The centroid of each cluster is updated as a running average as new faces are added.
+Each detected face is converted into a 512-dimensional vector (embedding) by the ArcFace model — a numeric fingerprint where faces of the same person land close together in that space.
+
+Cosine similarity measures how close two embeddings are: 1.0 = identical, 0.0 = completely unrelated. For example:
+- Two photos of the same kid smiling → ~0.75
+- Same kid, one photo from the side → ~0.50
+- Two completely different people → ~0.15
+
+The app uses embeddings in three ways:
+
+**Clustering** — For each new face, compare its embedding to every existing cluster centroid. If the best match is ≥ 0.4, merge it in and update the centroid (running average). Otherwise, start a new cluster. So if you scan 300 photos with 20 different people, you end up with ~20 clusters, each with a centroid that represents the "average face" of that person.
+
+**Reference matching** — Extract embeddings from your reference photos (e.g. 3 photos of your kid), then score each cluster centroid against them. A cluster with similarity ≥ 0.3 to any reference is marked as matched. This is fast — just dot products against the centroids, no need to rescan the original photos.
+
+**Deduplication** — A group photo with 3 faces ends up in 3 clusters. Each cluster stores its similarity score for that image. The app shows the photo only in the cluster where it scored highest, so you don't see the same group shot repeated 3 times.
 
 ## License
 
